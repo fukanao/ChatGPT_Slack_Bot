@@ -1,7 +1,7 @@
 # ChatGPT_Slack_Bot
 - ChatGPT APIとSlack Botを接続するPythonコードです
 - 作成時点のAPIは gpt-3.5-turboになります
-- システムのロールはリゼロのレム
+- システムのロールはリゼロの人。好みに書き換えてOK
 - ubuntu上で起動させることが前提
 - 8割はChatGPT-4に聞きました
 ----------------

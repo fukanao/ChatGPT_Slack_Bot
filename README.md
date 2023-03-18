@@ -22,6 +22,8 @@ Slack Botに必要な環境変数を設定するため、/opt/slackbotディレ�
     OPENAI_API_KEY=your_openai_api_key
     SLACK_APP_TOKEN=your_slack_app_token
     SLACK_BOT_TOKEN=your_slack_bot_token
+    
+ここで、your_*を実際のtokenに置き換えてください。
 systemdサービスファイルを作成します。/etc/systemd/systemディレクトリにslackbot.serviceという名前のファイルを作成し、以下の内容で編集します。
 
 

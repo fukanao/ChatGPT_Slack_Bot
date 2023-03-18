@@ -48,6 +48,7 @@ def message_handler(body, say):
 
 
 def handle_message(body, say):
+    global messages
 
     text = body['event']['text']
     user = body['event']['user']
@@ -57,6 +58,9 @@ def handle_message(body, say):
 
     if user not in user_messages:
         user_messages[user] = []
+
+    # Add the user's message to the messages list
+    user_messages[user] = add_message(user_messages[user], "user", prompt, max_tokens)
 
     # システムのロールを追加
     system_role = {
@@ -75,18 +79,15 @@ def handle_message(body, say):
         )
     }
 
-    user_messages[user].insert(0, system_role)
-
-    # Add the user's message to the messages list
-    user_messages[user] = add_message(user_messages[user], "user", prompt, max_tokens)
-
     # 最後の6つのメッセージを保持します（システムメッセージ、ユーザーメッセージ 、アシスタントメッセージが交互に3回分）
-    user_messages[user] = user_messages[user][-6:]
+    user_messages[user] = user_messages[user][-5:]
+
+    user_messages_with_system_role = [system_role] + user_messages[user]
 
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
-            messages=user_messages[user],
+            messages=user_messages_with_system_role,
             temperature=0.5,
             max_tokens=3000,
             stop=None,
@@ -96,8 +97,9 @@ def handle_message(body, say):
         user_messages[user] = add_message(user_messages[user], "assistant", response.choices[0].message.content, max_tokens)
 
         say(response.choices[0].message.content)
+
+
     except Exception as e:
-        print(e)
         say(str(e))
         say('エラーが発生しました。')
 

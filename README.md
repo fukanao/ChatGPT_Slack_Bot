@@ -5,5 +5,55 @@
 - ubuntu上で起動させることが前提
 ----------------
 
--- インストール
+## インストール
 
+UbuntuでPythonスクリプトを起動時に自動実行するには、systemdを使用してサービスを作成します。以下の手順で進めてください。
+
+まず、Pythonスクリプトを保存しておくディレクトリを作成します。ここでは/opt/slackbotとします。適切な権限を与えるために、以下のコマンドを実行します。
+
+    sudo mkdir /opt/slackbot
+    sudo chown $USER:$USER /opt/slackbot
+作成したディレクトリに先程のPythonスクリプト（例：slackbot.py）を保存します。
+
+Slack Botに必要な環境変数を設定するため、/opt/slackbotディレクトリにenvという名前のファイルを作成し、以下の内容で編集します。
+
+
+    OPENAI_API_KEY=your_openai_api_key
+    SLACK_APP_TOKEN=your_slack_app_token
+    SLACK_BOT_TOKEN=your_slack_bot_token
+systemdサービスファイルを作成します。/etc/systemd/systemディレクトリにslackbot.serviceという名前のファイルを作成し、以下の内容で編集します。
+
+
+    [Unit]
+    Description=SlackBot Service
+    After=network.target
+    
+    [Service]
+    User=your_username
+    Group=your_username
+    WorkingDirectory=/opt/slackbot
+    EnvironmentFile=/opt/slackbot/env
+    ExecStart=/usr/bin/python3 /opt/slackbot/slackbot.py
+    Restart=always
+
+    [Install]
+    WantedBy=multi-user.target
+ここで、your_usernameを実際のユーザー名に置き換えてください。
+
+systemdに新しいサービスファイルがあることを認識させ、自動起動を有効にします。
+
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable slackbot.service
+サービスを開始します。
+
+
+    sudo systemctl start slackbot.service
+これで、Ubuntuの起動時にPythonスクリプトが自動的に実行されるようになります。サービスの状態を確認するには、以下のコマンドを使用します。
+
+
+
+    sudo systemctl status slackbot.service
+サービスを停止するには、以下のコマンドを使用します。
+
+    sudo systemctl stop slackbot.service

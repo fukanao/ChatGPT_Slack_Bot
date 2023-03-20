@@ -60,3 +60,42 @@ systemdに新しいサービスファイルがあることを認識させ、自�
 サービスを停止するには、以下のコマンドを使用します。
 
     sudo systemctl stop slackbot.service
+
+## Slack API設定
+
+APP管理　-> Create New App -> From Scratch
+
+AppName: アプリ名
+WorkSpace: 使用したいワークスペース
+
+App-Level Tokens: connections:write作成
+Socket Mode: enable
+
+### Bots
+Always Show My Bot as Online: enable
+
+Home Tab: enable
+
+Messages Tab: enable
+
+Allow users to send Slash commands and messages from the messages tab: enable
+
+### Event Subscriptions
+Enable Events: enable
+
+Subscribe to bot events
+
+    app_mention
+    message:im
+
+### OAuth and Permissions
+Scopes
+
+    app_mentions:read
+    chat:write
+    chat:write.customize
+    groups:write
+    im:history
+    im:read
+    im:write
+

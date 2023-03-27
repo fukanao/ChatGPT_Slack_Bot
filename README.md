@@ -16,7 +16,7 @@ UbuntuでPythonスクリプトを起動時に自動実行するには、systemd�
     sudo chown $USER:$USER /opt/slackbot
 作成したディレクトリに先程のPythonスクリプト（例：Remu_slack_bot.py）を保存します。
 
-Slack Botに必要な環境変数を設定するため、/opt/slackbotディレクトリにenvという名前のファイルを作成し、以下の内容で編集します。
+Slack Botに必要な環境変数を設定するため、/opt/slackbotディレクトリに.envという名前のファイルを作成し、以下の内容で編集します。
 
 
     OPENAI_API_KEY=your_openai_api_key
@@ -32,10 +32,11 @@ systemdサービスファイルを作成します。/etc/systemd/systemディレ
     After=network.target
     
     [Service]
+    Type=Simple
     User=your_username
     Group=your_username
     WorkingDirectory=/opt/slackbot
-    EnvironmentFile=/opt/slackbot/env
+    EnvironmentFile=/opt/slackbot/.env
     ExecStart=/usr/bin/python3 /opt/slackbot/Remu_slack_bot.py
     Restart=always
 

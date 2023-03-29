@@ -88,6 +88,7 @@ Subscribe to bot events
 
     app_mention
     message:im
+    app_home_opened
 
 ### OAuth and Permissions
 Scopes

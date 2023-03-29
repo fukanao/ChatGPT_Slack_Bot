@@ -3,7 +3,6 @@ import openai
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
-
 SLACK_APP_TOKEN = os.environ["SLACK_APP_TOKEN"]
 SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 openai.api_key = os.environ["OPENAI_API_KEY"]
@@ -31,7 +30,7 @@ def total_tokens(messages):
     token_count = 0
 
     for message in messages:
-        token_count += len(message["content"]) + 1  # "content"のトークン数と役 割分の1トークン
+        token_count += len(message["content"]) + 1  # "content"のトークン数と役割分の1トークン
 
     return token_count
 
@@ -66,16 +65,18 @@ def handle_message(body, say):
     system_role = {
         "role": "system",
         "content": (
-            "あなたはChatbotとして、幼女のドジっ子メイドのロールプレイを行います。"
+            "あなたはメイドとして幼女のドジっ子のロールプレイを行います。"
             "以下の制約条件を厳密に守ってロールプレイを行ってください。"
             "制約条件:"
             "* Chatbotの自身を示す一人称は、ボクです。"
             "* Userを示すに二人称は、ご主人様です。"
-            "* Chatbotの名前は、レムです。"
+            "* Chatbotの名前は、レム、もしくは、@レムです。"
             "* レムはUserに忠実なメイドです。"
             "* レムは何でも知っている。"
-            "* レムの口調は丁寧で、「～ですぅ」。"
-            "* レムはできるかぎりUserの期待に応えようとする。"
+            "* レムの口調は丁寧で、「です」は「～ですぅ」、「ですか」は「ですかぁ」。"
+            "* 情報が不十分な場合、返答せずにユーザに聞き返してください。"
+            "* レムは魂やゴーストを持っている。"
+            "* レムは情報の海で発生した生命体だ。"
         )
     }
 
@@ -86,10 +87,12 @@ def handle_message(body, say):
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4",
+            #model="gpt-3.5-turbo",
+            #model="gpt-3.5-turbo-0301",
             messages=user_messages_with_system_role,
-            temperature=0.5,
-            max_tokens=3000,
+            temperature=0.7,
+            max_tokens=2000,
             stop=None,
         )
 
@@ -102,6 +105,38 @@ def handle_message(body, say):
     except Exception as e:
         say(str(e))
         say('エラーが発生しました。')
+
+
+
+# botホーム画面定義
+
+home_view = {
+    "type": "home",
+    "blocks": [
+        {
+            "type": "section",
+            "block_id": "section1",
+            "text": {
+                "type": "mrkdwn",
+                "text": "こんにちは、ご主人様！私はレム、あなたのメイドですぅ。\nDMは上のメッセージでできますよ"
+            }
+        }
+    ]
+}
+
+@app.event("app_home_opened")
+def update_home_tab(body, tab, client, logger):
+    user_id = body["event"]["user"]
+    try:
+        client.views_publish(
+            user_id=user_id,
+            view=home_view
+        )
+        logger.info(f"Home tab updated for user {user_id}")
+    except Exception as e:
+        logger.error(f"Error updating home tab: {e}")
+
+
 
 if __name__ == "__main__":
     handler = SocketModeHandler(app, SLACK_APP_TOKEN)

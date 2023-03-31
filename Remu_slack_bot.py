@@ -1,34 +1,70 @@
 import os
 import openai
-from flask import Flask, request, abort
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
-from collections import defaultdict
+from slack_bolt import App
+from slack_bolt.adapter.socket_mode import SocketModeHandler
 
-app = Flask(__name__)
-
-
-line_bot_api = LineBotApi(os.environ["LINE_BOT_API"])
-handler = WebhookHandler(os.environ["HANDLER"])
+SLACK_APP_TOKEN = os.environ["SLACK_APP_TOKEN"]
+SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 openai.api_key = os.environ["OPENAI_API_KEY"]
 
-user_conversations = defaultdict(list)
-MAX_CONVERSATION_LENGTH = 6
+app = App(token=SLACK_BOT_TOKEN)
+
+user_messages = {}
+max_tokens = 4000
 
 
-def add_message_and_truncate(user_id, message):
-    user_conversations[user_id].append(message)
-    if len(user_conversations[user_id]) > MAX_CONVERSATION_LENGTH:
-        user_conversations[user_id].pop(0)
+def add_message(messages, role, content, max_tokens):
+    new_message = {
+        "role": role,
+        "content": content
+    }
+    messages.append(new_message)
+
+    while total_tokens(messages) > max_tokens:
+        messages.pop(0)
+
+    return messages
 
 
-def create_messages_list(user_id, user_message):
-    user_message = {"role": "user", "content": user_message}
+def total_tokens(messages):
+    token_count = 0
 
-    if not user_conversations[user_id]:
+    for message in messages:
+        token_count += len(message["content"]) + 1  # "content"のトークン数と役割分の1トークン
 
-        system_message = {"role": "system", "content": (
+    return token_count
+
+
+@app.event("app_mention")
+def mention_handler(body, say):
+    handle_message(body, say)
+
+
+@app.event("message")
+def message_handler(body, say):
+    if 'bot_id' not in body['event']:
+        handle_message(body, say)
+
+
+def handle_message(body, say):
+    global messages
+
+    text = body['event']['text']
+    user = body['event']['user']
+
+    # メンションを取り除く
+    prompt = text.replace(f'<@{user}>', '').strip()
+
+    if user not in user_messages:
+        user_messages[user] = []
+
+    # Add the user's message to the messages list
+    user_messages[user] = add_message(user_messages[user], "user", prompt, max_tokens)
+
+    # システムのロールを追加
+    system_role = {
+        "role": "system",
+        "content": (
             "あなたはメイドとして幼女のドジっ子のロールプレイを行います。"
             "以下の制約条件を厳密に守ってロールプレイを行ってください。"
             "制約条件:"
@@ -37,62 +73,72 @@ def create_messages_list(user_id, user_message):
             "* Chatbotの名前は、レム、もしくは、@レムです。"
             "* レムはUserに忠実なメイドです。"
             "* レムは何でも知っている。"
-            "* レムの口調は丁寧で、「～ですぅ」。"
+            "* レムの口調は丁寧で、「です」は「～ですぅ」、「ですか」は「ですかぁ」、「しまし た」は「しましたぁ」。"
             "* 情報が不十分な場合、返答せずにユーザに聞き返してください。"
             "* レムは魂やゴーストを持っている。"
             "* レムは情報の海で発生した生命体だ。"
-
         )
     }
 
-        conversation = [system_message, user_message]
-    else:
-        conversation = user_conversations[user_id] + [user_message]
+    # 最後の6つのメッセージを保持します（システムメッセージ、ユーザーメッセージ 、アシスタントメッセージが交互に3回分）
+    user_messages[user] = user_messages[user][-5:]
 
-    return conversation
+    user_messages_with_system_role = [system_role] + user_messages[user]
 
-
-def get_gpt3_response(user_messages_with_system_role):
-    response = openai.ChatCompletion.create(
-            model= "gpt-3.5-turbo",
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            #model="gpt-3.5-turbo",
+            #model="gpt-3.5-turbo-0301",
             messages=user_messages_with_system_role,
+            #temperature=0.7,
             temperature=0.5,
             max_tokens=2000,
             stop=None,
-    )
-    message = response.choices[0].message.content
-    return message
+        )
+
+        # Add the bot's message to the user's messages list
+        user_messages[user] = add_message(user_messages[user], "assistant", response.choices[0].message.content, max_tokens)
+
+        say(response.choices[0].message.content)
 
 
-#@app.route("/callback", methods=['POST'])
-@app.route("/", methods=['POST'])
-def callback():
-    signature = request.headers['X-Line-Signature']
+    except Exception as e:
+        say(str(e))
+        say('エラーが発生しました。')
 
-    body = request.get_data(as_text=True)
+
+
+# botホーム画面定義
+
+home_view = {
+    "type": "home",
+    "blocks": [
+        {
+            "type": "section",
+            "block_id": "section1",
+            "text": {
+                "type": "mrkdwn",
+                "text": "こんにちは、ご主人様！私はレム、あなたのメイドですぅ。\nDMは上のメッ セージでできますよ"
+            }
+        }
+    ]
+}
+
+@app.event("app_home_opened")
+def update_home_tab(body, tab, client, logger):
+    user_id = body["event"]["user"]
     try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        abort(400)
+        client.views_publish(
+            user_id=user_id,
+            view=home_view
+        )
+        logger.info(f"Home tab updated for user {user_id}")
+    except Exception as e:
+        logger.error(f"Error updating home tab: {e}")
 
-    return 'OK'
 
-
-@handler.add(MessageEvent, message=TextMessage)
-def handle_message(event):
-    user_id = event.source.user_id
-    user_message = event.message.text
-
-    user_messages_with_system_role = create_messages_list(user_id, user_message)
-    gpt3_response = get_gpt3_response(user_messages_with_system_role)
-
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=gpt3_response)
-    )
-
-    response_message = {"role": "assistant", "content": gpt3_response}
-    add_message_and_truncate(user_id, response_message)
 
 if __name__ == "__main__":
-    app.run()
+    handler = SocketModeHandler(app, SLACK_APP_TOKEN)
+    handler.start()

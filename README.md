@@ -100,4 +100,3 @@ Scopes
     im:history
     im:read
     im:write
-

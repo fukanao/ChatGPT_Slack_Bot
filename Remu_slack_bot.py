@@ -1,12 +1,22 @@
 import os
 import re
 from slack_bolt import App
+# socket mode での動作
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from langchain import PromptTemplate
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import ConversationChain
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 from dotenv import load_dotenv
+
+#from langchain.embeddings.openai import OpenAIEmbeddings
+#from langchain.vectorstores import Chroma
+#from langchain.chains import ConversationalRetrievalChain
+
+from slack_sdk import WebClient
+from slack_sdk.rtm_v2 import RTMClient
+
+
 
 # APIキーの設定
 load_dotenv()
@@ -54,17 +64,26 @@ conversation = ConversationChain(
 )
 
 
-#メンションされた場合とメッセージがあった場合
+#メンションされた場合とメッセージ(権限設定でDMに限定している）があった場合
 @app.event("app_mention")
 @app.event("message")
-def command_handler(event, say):
+#def handle_events(event, say):
+def command_handler(event, say, client):
     #　メッセージを取得
     message = re.sub(r'^<.*>', '', event['text'])
+
+    # チャネルにtyping状態を送信
+    channel_id = event["channel"]
+    response = client.chat_postMessage(channel=channel_id, text="レムちゃんが考えています...")
+
 
     #ConversationChain.predict() メソッドで回答を取得
     output = conversation.predict(input=message)
 
-    say(output)
+    #say(output)
+    # メッセージを更新
+    client.chat_update(channel=channel_id, ts=response['ts'], text=output)
+
 
 
 # botホーム画面定義
@@ -83,6 +102,7 @@ home_view = {
 }
 
 @app.event("app_home_opened")
+#def update_home_tab(body, tab, client, logger):
 def update_home_tab(body, client, logger):
     user_id = body["event"]["user"]
     try:

@@ -1,5 +1,4 @@
 import os
-import time
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -94,9 +93,6 @@ def handle_message(body, say, client, channel_id):
         # メッセージを追加する前に「レムちゃんが考えています...」と表示
         message_ts = say("レムちゃんが考えています...", channel=channel_id)
 
-        print('#97',message_ts)
-        print('#98',message_ts['ts'])
-
         response = openai.ChatCompletion.create(
             model="gpt-4",
             #model="gpt-3.5-turbo",
@@ -115,17 +111,12 @@ def handle_message(body, say, client, channel_id):
         #say(response.choices[0].message.content)
         say(response.choices[0].message.content, delete_original="レムちゃんが考えています...", channel=channel_id)
         client.chat_delete(ts=message_ts['ts'], channel=channel_id)
-
-
-
+        
     except Exception as e:
         say(str(e))
         say('エラーが発生しました。')
 
-
-
 # botホーム画面定義
-
 home_view = {
     "type": "home",
     "blocks": [

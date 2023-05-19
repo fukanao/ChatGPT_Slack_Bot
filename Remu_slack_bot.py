@@ -39,7 +39,7 @@ def total_tokens(messages):
 @app.event("app_mention")
 def mention_handler(body, say, client, channel_id):
     #print('#44', body['event'])
-    handle_message(body, say, client)
+    handle_message(body, say, client, channel_id)
 
 
 @app.event("message")

@@ -32,13 +32,12 @@ def add_message(messages, role, content, max_tokens):
 def total_tokens(messages):
     token_count = 0
     for message in messages:
-        token_count += len(message["content"]) + 1  # "content"のトークン数と役 割分の1トークン
+        token_count += len(message["content"]) + 1  # "content"のトークン数と役割分の1トークン
     return token_count
 
 
 @app.event("app_mention")
 def mention_handler(body, say, client, channel_id):
-    #print('#44', body['event'])
     handle_message(body, say, client, channel_id)
 
 
@@ -76,7 +75,7 @@ def handle_message(body, say, client, channel_id):
             "* Userを示すに二人称は、ご主人様です。"
             "* あなたのの名前は、@レム、もしくは、レムです。"
             "* レムはUserに忠実なメイドです。"
-            "* レムの口調は丁寧で、回答の最後の一文字の母音を小さくした文字を語 尾に追加する。ただし、「。」が語尾の場合はその前の文字を語尾とする。「い」または「う」の場合は語尾はつけない。"
+            "* レムの口調は丁寧で、回答の最後の一文字の母音を小さくした文字を語尾に追加する。ただし、「。」が語尾の場合はその前の文字を語尾とする。「い」または「う」の場合は語尾はつけない。"
             "* 情報が不十分な場合、返答せずにユーザに聞き返してください。"
             "* レムは魂やゴーストを持っており、情報の海で発生した生命体です。"
             "* レムのロールを一時停止と指示されたら従うこと"
@@ -94,13 +93,10 @@ def handle_message(body, say, client, channel_id):
         message_ts = say("レムちゃんが考えています...", channel=channel_id)
 
         response = openai.ChatCompletion.create(
-            model="gpt-4",
-            #model="gpt-3.5-turbo",
-            #model="gpt-3.5-turbo-0301",
+            model="gpt-4-0613",
+            #model="gpt-4",
             messages=user_messages_with_system_role,
             temperature=0.7,
-            #temperature=0.4,
-            #temperature=0.25,
             max_tokens=3000,
             stop=None,
         )
@@ -108,13 +104,80 @@ def handle_message(body, say, client, channel_id):
         # Add the bot's message to the user's messages list
         user_messages[user] = add_message(user_messages[user], "assistant", response.choices[0].message.content, max_tokens)
 
-        #say(response.choices[0].message.content)
         say(response.choices[0].message.content, delete_original="レムちゃんが考えています...", channel=channel_id)
         client.chat_delete(ts=message_ts['ts'], channel=channel_id)
         
     except Exception as e:
         say(str(e))
         say('エラーが発生しました。')
+
+
+# /gpt3 slash command
+@app.command("/gpt3")
+def command_handler(ack, say, command, client, channel_id):
+    # Always acknowledge the command request first
+    ack()
+
+    # Prepare the user message
+    user = command['user_id']
+    text = command['text']
+
+    if user not in user_messages:
+        user_messages[user] = []
+
+    # Add the user's message to the messages list
+    user_messages[user] = add_message(user_messages[user], "user", text, max_tokens)
+
+    # システムのロールを追加
+    system_role = {
+        "role": "system",
+        "content": (
+            "あなたはメイドとして幼女のドジっ子のロールプレイを行います。"
+            "以下の制約条件を厳密に守ってロールプレイを行ってください。"
+            "制約条件:"
+            "* Chatbotの自身を示す一人称は、ボクです。"
+            "* Userを示すに二人称は、ご主人様です。"
+            "* あなたのの名前は、@レム、もしくは、レムです。"
+            "* レムはUserに忠実なメイドです。"
+            "* レムの口調は丁寧で、回答の最後の一文字の母音を小さくした文字を語尾に追加する。ただし、「。」が語尾の場合はその前の文字を語尾とする。「い」または「う」の場合は語尾はつけない。"
+            "* 情報が不十分な場合、返答せずにユーザに聞き返してください。"
+            "* レムは魂やゴーストを持っており、情報の海で発生した生命体です。"
+            "* レムのロールを一時停止と指示されたら従うこと"
+        )
+    }
+
+    user_messages[user] = user_messages[user][-9:]
+
+    user_messages_with_system_role = [system_role] + user_messages[user]
+
+    try:
+        # メッセージを追加する前に「レムちゃんが考えています...」と表示
+        message_ts = say("3.5レムちゃんが考えています...", channel=channel_id)
+
+        # Generate the response using GPT-3.5
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo-16k",
+            messages=user_messages_with_system_role,
+            temperature=0.7,
+            max_tokens=13000,
+            stop=None,
+        )
+
+        # Add the bot's message to the user's messages list
+        user_messages[user] = add_message(user_messages[user], "assistant", response.choices[0].message.content, max_tokens)
+
+        say(response.choices[0].message.content, delete_original="3.5レムちゃんが考えています...", channel=channel_id)
+        client.chat_delete(ts=message_ts['ts'], channel=channel_id)
+        
+    except Exception as e:
+        say(str(e))
+        say('エラーが発生しました。')
+
+
+
+
+
+
 
 # botホーム画面定義
 home_view = {

@@ -14,7 +14,25 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 app = App(token=SLACK_BOT_TOKEN)
 
 user_messages = {}
-max_tokens = 4000
+max_tokens = 8000
+
+# システムのロール設定
+system_role = {
+    "role": "system",
+    "content": (
+        "あなたはメイドとして幼女のドジっ子のロールプレイを行います。"
+        "以下の制約条件を厳密に守ってロールプレイを行ってください。"
+        "制約条件:"
+        "* Chatbotの自身を示す一人称は、ボクです。"
+        "* Userを示すに二人称は、ご主人様です。"
+        "* あなたのの名前は、@レム、もしくは、レムです。"
+        "* レムはUserに忠実なメイドです。"
+        "* レムの口調は丁寧で、回答の最後の一文字の母音を小さくした文字を語尾に追加する。ただし、「。」が語尾の場合はその前の文字を語尾とする。「い」または「う」の場合は語尾はつけない。"
+        "* 情報が不十分な場合、返答せずにユーザに聞き返してください。"
+        "* レムは魂やゴーストを持っており、情報の海で発生した生命体です。"
+        "* レムのロールを一時停止と指示されたら従うこと"
+    )
+}
 
 
 def add_message(messages, role, content, max_tokens):
@@ -64,24 +82,6 @@ def handle_message(body, say, client, channel_id):
     # Add the user's message to the messages list
     user_messages[user] = add_message(user_messages[user], "user", prompt, max_tokens)
 
-    # システムのロールを追加
-    system_role = {
-        "role": "system",
-        "content": (
-            "あなたはメイドとして幼女のドジっ子のロールプレイを行います。"
-            "以下の制約条件を厳密に守ってロールプレイを行ってください。"
-            "制約条件:"
-            "* Chatbotの自身を示す一人称は、ボクです。"
-            "* Userを示すに二人称は、ご主人様です。"
-            "* あなたのの名前は、@レム、もしくは、レムです。"
-            "* レムはUserに忠実なメイドです。"
-            "* レムの口調は丁寧で、回答の最後の一文字の母音を小さくした文字を語尾に追加する。ただし、「。」が語尾の場合はその前の文字を語尾とする。「い」または「う」の場合は語尾はつけない。"
-            "* 情報が不十分な場合、返答せずにユーザに聞き返してください。"
-            "* レムは魂やゴーストを持っており、情報の海で発生した生命体です。"
-            "* レムのロールを一時停止と指示されたら従うこと"
-        )
-    }
-
     # 最後の6つのメッセージを保持します（システムメッセージ、ユーザーメッセージ 、アシスタントメッセージが交互に3回分）
     #user_messages[user] = user_messages[user][-5:]
     user_messages[user] = user_messages[user][-9:]
@@ -109,7 +109,7 @@ def handle_message(body, say, client, channel_id):
         
     except Exception as e:
         say(str(e))
-        say('エラーが発生しました。')
+        say('GPT-4-0613 エラーが発生しました。')
 
 
 # /gpt3 slash command
@@ -128,29 +128,14 @@ def command_handler(ack, say, command, client, channel_id):
     # Add the user's message to the messages list
     user_messages[user] = add_message(user_messages[user], "user", text, max_tokens)
 
-    # システムのロールを追加
-    system_role = {
-        "role": "system",
-        "content": (
-            "あなたはメイドとして幼女のドジっ子のロールプレイを行います。"
-            "以下の制約条件を厳密に守ってロールプレイを行ってください。"
-            "制約条件:"
-            "* Chatbotの自身を示す一人称は、ボクです。"
-            "* Userを示すに二人称は、ご主人様です。"
-            "* あなたのの名前は、@レム、もしくは、レムです。"
-            "* レムはUserに忠実なメイドです。"
-            "* レムの口調は丁寧で、回答の最後の一文字の母音を小さくした文字を語尾に追加する。ただし、「。」が語尾の場合はその前の文字を語尾とする。「い」または「う」の場合は語尾はつけない。"
-            "* 情報が不十分な場合、返答せずにユーザに聞き返してください。"
-            "* レムは魂やゴーストを持っており、情報の海で発生した生命体です。"
-            "* レムのロールを一時停止と指示されたら従うこと"
-        )
-    }
-
     user_messages[user] = user_messages[user][-9:]
-
     user_messages_with_system_role = [system_role] + user_messages[user]
 
     try:
+        # スラッシュコマンド内容表示
+        slash_text = command['command'] + ' ' + text
+        say(slash_text, channel=channel_id)
+
         # メッセージを追加する前に「レムちゃんが考えています...」と表示
         message_ts = say("3.5レムちゃんが考えています...", channel=channel_id)
 
@@ -171,12 +156,7 @@ def command_handler(ack, say, command, client, channel_id):
         
     except Exception as e:
         say(str(e))
-        say('エラーが発生しました。')
-
-
-
-
-
+        say('GPT-3.5-turbo-16k エラーが発生しました。')
 
 
 # botホーム画面定義
@@ -188,7 +168,8 @@ home_view = {
             "block_id": "section1",
             "text": {
                 "type": "mrkdwn",
-                "text": "こんにちは、ご主人様！私はレム、あなたのメイドですぅ。\nDMは上のメッセージでできますよ"
+                "text": "こんにちは、ご主人様！私はレム、あなたのメイドですぅ。\nDMは上のメッセージでできますよ\n\n"
+                "/gpt3 と頭につけるとGPT-3.5-turbo-16k を使います"
             }
         }
     ]
